@@ -100,9 +100,24 @@
 }
 
 - (void)handleModeGesture:(UIGestureRecognizer *)gestureRecognizer {
+    static BOOL disabling = NO;
+    if (disabling) {
+        return;
+    }
+    
     CGPoint location = [gestureRecognizer locationInView:self];
     [self moveAnchorAccordingToTouchOrigin:location.y];
     switch (gestureRecognizer.state) {
+        case UIGestureRecognizerStateChanged:
+            if (!CGRectContainsPoint(self.bounds, location)) {
+                [self doSelectionForAnchorOrigin:self.sliderAnchorView.center.y];
+                [self animateAnchorBounceBack];
+                disabling = YES;
+                gestureRecognizer.enabled = NO;
+                gestureRecognizer.enabled = YES;
+                disabling = NO;
+            }
+            break;
         case UIGestureRecognizerStateEnded:
             if (self.anchorMoved)
                 [self doSelectionForAnchorOrigin:self.sliderAnchorView.center.y];
