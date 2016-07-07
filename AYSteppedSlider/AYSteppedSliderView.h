@@ -28,6 +28,7 @@
 @property (nonatomic, assign) BOOL bouncing;
 @property (nonatomic, assign) BOOL positiveSideEnabled;
 @property (nonatomic, assign) BOOL negativeSideEnabled;
+@property (nonatomic, assign) BOOL isHorizontal;
 
 
 @property (nonatomic, weak) id<AYSteppedSliderViewDelegate> delegate;

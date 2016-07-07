@@ -47,13 +47,14 @@
     [super touchesBegan:touches withEvent:event];
     UITouch *touch = [[event allTouches] anyObject];
     CGPoint location = [touch locationInView:self];
-    [self moveAnchorAccordingToTouchOrigin:location.y];
+    
+    [self moveAnchorAccordingToTouchOrigin:(self.isHorizontal ? location.x : location.y)];
 }
 
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesEnded:touches withEvent:event];
     if ([self anchorMoved]) {
-        [self doSelectionForAnchorOrigin:self.sliderAnchorView.center.y];
+        [self doSelectionForAnchorOrigin:self.isHorizontal ? self.sliderAnchorView.center.x : self.sliderAnchorView.center.y];
         [self animateAnchorBounceBack];
     }
 }
@@ -61,17 +62,33 @@
 #pragma mark - Public
 
 - (NSInteger)stepIndexForCurrentAnchorPosition:(BOOL *)isRemoving {
-    CGFloat anchorOrigin = self.sliderAnchorView.center.y;
-    double step = (self.sliderTrackView.frame.size.height / 2) / [self.steps count];
-    NSInteger translatedOrigin = anchorOrigin - self.sliderTrackView.frame.origin.y;
-    BOOL removing = translatedOrigin > self.sliderTrackView.frame.size.height / 2;
+    CGFloat anchorOrigin = self.isHorizontal ? self.sliderAnchorView.center.x : self.sliderAnchorView.center.y;
+    CGFloat size = self.isHorizontal ? self.sliderTrackView.frame.size.width : self.sliderTrackView.frame.size.height;
+    CGFloat sliderOrigin = self.isHorizontal ? self.sliderTrackView.frame.origin.x : self.sliderTrackView.frame.origin.y;
+    
+    double step = (size / 2) / [self.steps count];
+    NSInteger translatedOrigin = anchorOrigin - sliderOrigin;
+    BOOL removing = self.isHorizontal ? translatedOrigin < size / 2 : translatedOrigin > size / 2;
     if (removing) {
-        translatedOrigin -= self.sliderTrackView.frame.size.height / 2;
-        NSInteger index = MIN([self.steps count] - 1, translatedOrigin / step);
+        NSInteger index = 0;
+        if (self.isHorizontal) {
+            index = [self.steps count] - 1 - translatedOrigin / step;
+        } else {
+            translatedOrigin -= size / 2;
+            index = MIN([self.steps count] - 1, translatedOrigin / step);
+        }
+        
         *isRemoving = YES;
         return index;
     } else {
-        NSInteger index = ([self.steps count] - 1) - translatedOrigin / step;
+        NSInteger index = 0;
+        if (self.isHorizontal) {
+            translatedOrigin -= size / 2;
+            index = MIN(translatedOrigin / step, [self.steps count] - 1);
+        } else {
+            index = ([self.steps count] - 1) - translatedOrigin / step;
+        }
+       
         index = MAX(0, index);
         *isRemoving = NO;
         return index;
@@ -82,17 +99,38 @@
 
 - (void)moveAnchorAccordingToTouchOrigin:(CGFloat)touchOrigin {
     self.anchorMoved = NO;
-    if (!self.positiveSideEnabled && touchOrigin < (self.sliderTrackView.frame.size.height / 2 + self.sliderTrackView.frame.origin.y)) {
-        return;
+    
+    CGFloat size = self.isHorizontal ? self.sliderTrackView.frame.size.width : self.sliderTrackView.frame.size.height;
+    CGFloat origin = self.isHorizontal ? self.sliderTrackView.frame.origin.x : self.sliderTrackView.frame.origin.y;
+    
+    if (self.isHorizontal) {
+        if (!self.positiveSideEnabled && touchOrigin > (size / 2 + origin)) {
+            return;
+        }
+        if (!self.negativeSideEnabled && touchOrigin < (size / 2 + origin)) {
+            return;
+        }
+    } else {
+        if (!self.positiveSideEnabled && touchOrigin < (size / 2 + origin)) {
+            return;
+        }
+        if (!self.negativeSideEnabled && touchOrigin > (size / 2 + origin)) {
+            return;
+        }
     }
-    if (!self.negativeSideEnabled && touchOrigin > (self.sliderTrackView.frame.size.height / 2 + self.sliderTrackView.frame.origin.y)) {
-        return;
-    }
+
     self.anchorMoved = YES;
     
     CGPoint sliderAnchorCenter = self.sliderAnchorView.center;
-    sliderAnchorCenter.y = MAX(touchOrigin, self.sliderTrackView.frame.origin.y);
-    sliderAnchorCenter.y = MIN(sliderAnchorCenter.y, self.sliderTrackView.frame.origin.y + self.sliderTrackView.frame.size.height);
+    CGFloat centerOrigin = MAX(touchOrigin, origin);
+    centerOrigin = MIN(centerOrigin, origin + size);
+    
+    if (self.isHorizontal) {
+        sliderAnchorCenter.x = centerOrigin;
+    } else {
+        sliderAnchorCenter.y = centerOrigin;
+    }
+    
     self.sliderAnchorView.center = sliderAnchorCenter;
     if ([self.delegate respondsToSelector:@selector(steppedSlider:didMoveAnchorView:)]) {
         [self.delegate steppedSlider:self didMoveAnchorView:self.sliderAnchorView];
@@ -106,11 +144,11 @@
     }
     
     CGPoint location = [gestureRecognizer locationInView:self];
-    [self moveAnchorAccordingToTouchOrigin:location.y];
+    [self moveAnchorAccordingToTouchOrigin:self.isHorizontal ? location.x : location.y];
     switch (gestureRecognizer.state) {
         case UIGestureRecognizerStateChanged:
             if (!CGRectContainsPoint(self.bounds, location)) {
-                [self doSelectionForAnchorOrigin:self.sliderAnchorView.center.y];
+                [self doSelectionForAnchorOrigin:self.isHorizontal ? self.sliderAnchorView.center.x : self.sliderAnchorView.center.y];
                 [self animateAnchorBounceBack];
                 disabling = YES;
                 gestureRecognizer.enabled = NO;
@@ -120,7 +158,7 @@
             break;
         case UIGestureRecognizerStateEnded:
             if (self.anchorMoved)
-                [self doSelectionForAnchorOrigin:self.sliderAnchorView.center.y];
+                [self doSelectionForAnchorOrigin:self.isHorizontal ? self.sliderAnchorView.center.x : self.sliderAnchorView.center.y];
        case UIGestureRecognizerStateCancelled:
        case UIGestureRecognizerStateFailed:
             [self animateAnchorBounceBack];
@@ -132,7 +170,11 @@
 - (void)animateAnchorBounceBack {
     void (^changeBlock)() = ^void() {
         CGPoint sliderAnchorCenter = self.sliderAnchorView.center;
-        sliderAnchorCenter.y = self.sliderTrackView.frame.origin.y + self.sliderTrackView.frame.size.height / 2;
+        if (self.isHorizontal) {
+            sliderAnchorCenter.x = self.sliderTrackView.frame.origin.x + self.sliderTrackView.frame.size.width / 2;
+        } else {
+            sliderAnchorCenter.y = self.sliderTrackView.frame.origin.y + self.sliderTrackView.frame.size.height / 2;
+        }
         self.sliderAnchorView.center = sliderAnchorCenter;
     };
     

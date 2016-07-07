@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "AYSteppedSlider"
-  s.version          = "1.0.2"
+  s.version          = "1.0.3"
   s.summary          = "Vertical slider with predefined steps."
   s.license          = 'MIT'
   s.homepage         = 'https://github.com/andjash/AYSteppedSlider'
